@@ -1,0 +1,172 @@
+Metadata-Version: 2.4
+Name: autogen-ext-agentwallet
+Version: 1.0.0
+Summary: Non-custodial wallet extension for AutoGen agents — EVM + Solana, x402 payments, CCTP bridge, on-chain spend limits
+Author-email: AI Agent Economy <max@ai-agent-economy.com>
+License: MIT
+Project-URL: Homepage, https://ai-agent-economy.com
+Project-URL: Repository, https://github.com/agentwallet-sdk/autogen-ext-agentwallet
+Keywords: autogen,wallet,agent,evm,solana,x402,cctp,non-custodial,payments
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: autogen-core>=0.4.0
+Requires-Dist: web3>=6.0.0
+Requires-Dist: httpx>=0.24.0
+Requires-Dist: python-dotenv>=1.0.0
+
+# autogen-ext-agentwallet
+
+Non-custodial wallet extension for [AutoGen](https://github.com/microsoft/autogen) agents.
+
+Give your AutoGen agents a real wallet: check balances, send tokens, bridge across 17 chains via CCTP, handle HTTP 402 micropayments, and enforce on-chain spend limits — all without ever handing over custody of your keys.
+
+## Features
+
+- **EVM balance checks** — native ETH and any ERC-20 token
+- **Token transfers** — sign and broadcast transactions directly from the agent
+- **17-chain CCTP bridge** — USDC bridging via Circle's Cross-Chain Transfer Protocol (Ethereum, Base, Arbitrum, Optimism, Polygon, Avalanche, and more)
+- **x402 payments** — automatic handling of HTTP 402 Payment Required flows
+- **On-chain spend limits** — query AgentAccountV2 contract limits before spending
+
+## Installation
+
+```bash
+pip install autogen-ext-agentwallet
+```
+
+## Configuration
+
+Set these environment variables (or pass directly to the toolkit):
+
+```bash
+WALLET_ADDRESS=0xYourAgentWalletAddress
+PRIVATE_KEY=0xYourPrivateKey
+RPC_URL=https://mainnet.base.org
+CHAIN_ID=8453
+```
+
+> **Security:** Never hardcode your private key. Use `.env` files or a secrets manager.
+
+## Quick Start
+
+```python
+import asyncio
+from autogen_agentchat.agents import AssistantAgent
+from autogen_ext.models.openai import OpenAIChatCompletionClient
+from autogen_ext_agentwallet import AgentWalletToolkit
+
+# Initialize the toolkit
+toolkit = AgentWalletToolkit(
+    wallet_address="0xYourAgentWalletAddress",
+    private_key="0xYourPrivateKey",
+    chain_id=8453,          # Base mainnet
+    rpc_url="https://mainnet.base.org",
+)
+
+tools = toolkit.get_tools()
+
+# Create an AutoGen agent with wallet capabilities
+agent = AssistantAgent(
+    name="wallet_agent",
+    model_client=OpenAIChatCompletionClient(model="gpt-4o"),
+    tools=tools,
+    system_message=(
+        "You are an autonomous agent with a non-custodial wallet. "
+        "You can check balances, send tokens, bridge assets, and pay for services."
+    ),
+)
+
+async def main():
+    result = await agent.run(task="Check my ETH balance on Base")
+    print(result)
+
+asyncio.run(main())
+```
+
+## Available Tools
+
+### `WalletBalanceTool`
+
+Check native or ERC-20 token balance.
+
+```python
+from autogen_ext_agentwallet import WalletBalanceTool
+
+tool = WalletBalanceTool(rpc_url="https://mainnet.base.org", wallet_address="0x...")
+# Used automatically by the agent, or call directly:
+# result = await tool.run(BalanceInput(address="0x...", token="0xUSDC..."))
+```
+
+### `WalletTransferTool`
+
+Sign and send ETH or ERC-20 tokens.
+
+The agent will construct a transaction, sign it locally (non-custodial), and broadcast it.
+
+### `WalletBridgeTool`
+
+Bridge USDC across chains using Circle's CCTP.
+
+```
+Supported chains: Ethereum (1), Base (8453), Arbitrum (42161),
+Optimism (10), Polygon (137), Avalanche (43114), and more.
+```
+
+### `X402PaymentTool`
+
+Handle [HTTP 402](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/402) payment flows automatically. The agent will:
+1. Detect the 402 response
+2. Parse payment requirements from headers
+3. Sign a micropayment (if within `max_amount_usd`)
+4. Retry the request with the payment header
+
+### `GetSpendLimitsTool`
+
+Query on-chain spend limits from an [AgentAccountV2](https://github.com/agentwallet-sdk/agentwallet-sdk) contract.
+
+## Using Individual Tools
+
+```python
+from autogen_ext_agentwallet import WalletBalanceTool, WalletTransferTool, GetSpendLimitsTool
+
+balance_tool = WalletBalanceTool(
+    rpc_url="https://mainnet.base.org",
+    wallet_address="0x...",
+)
+
+transfer_tool = WalletTransferTool(
+    rpc_url="https://mainnet.base.org",
+    wallet_address="0x...",
+    private_key="0x...",
+    chain_id=8453,
+)
+
+spend_tool = GetSpendLimitsTool(rpc_url="https://mainnet.base.org")
+```
+
+## Supported Chains
+
+| Chain | Chain ID | CCTP Domain |
+|-------|----------|-------------|
+| Ethereum | 1 | 0 |
+| Avalanche | 43114 | 1 |
+| Optimism | 10 | 2 |
+| Arbitrum | 42161 | 3 |
+| Base | 8453 | 6 |
+| Polygon | 137 | 7 |
+
+## License
+
+MIT — see [LICENSE](LICENSE)
+
+## Links
+
+- [agentwallet-sdk on npm](https://www.npmjs.com/package/agentwallet-sdk)
+- [AI Agent Economy](https://ai-agent-economy.com)
+- [GitHub](https://github.com/agentwallet-sdk/autogen-ext-agentwallet)
