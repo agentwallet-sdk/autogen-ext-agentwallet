@@ -1,3 +1,6 @@
+> [!WARNING]
+> **Paused for security maintenance. Do not use in production.**
+
 # autogen-ext-agentwallet
 
 Non-custodial wallet extension for [AutoGen](https://github.com/microsoft/autogen) agents.
